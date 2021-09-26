@@ -83,6 +83,12 @@ export function addError(proc: Processor, err: DendronError) {
   proc().data("errors", errors);
 }
 
+/**
+ * Returns a note or gives an error message if no note is found
+ * @param notes
+ * @param hint
+ * @returns
+ */
 export function getNoteOrError(
   notes: NoteProps[],
   hint: any

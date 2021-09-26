@@ -66,6 +66,7 @@
     "mdast-builder": "^1.1.1",
     "mdast-util-compact": "^2.0.1",
     "mdast-util-inject": "^1.1.0",
+    "next-mdx-remote": "^3.0.4",
     "nunjucks": "^3.2.3",
     "qs": "^6.10.1",
     "rehype-autolink-headings": "^5.0.1",

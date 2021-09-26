@@ -62,7 +62,12 @@ function plugin(this: Unified.Processor, opts?: PluginOpts): Transformer {
 
   function transformer(tree: Node, _file: VFile) {
     const root = tree as Root;
-    const { error: engineError, engine } = MDUtilsV4.getEngineFromProc(proc);
+
+    // FIXME:REMOVE V4
+    const { engine, error: engineError } = MDUtilsV5.isV5Active(proc)
+      ? MDUtilsV5.getProcEngine(proc)
+      : MDUtilsV4.getEngineFromProc(proc);
+
     const insertTitle = !_.isUndefined(overrides?.insertTitle)
       ? overrides?.insertTitle
       : opts?.insertTitle;
@@ -89,6 +94,7 @@ function plugin(this: Unified.Processor, opts?: PluginOpts): Transformer {
         );
       }
     }
+
     visitParents(tree, (node, ancestors) => {
       const parent = _.last(ancestors);
       if (_.isUndefined(parent) || !RemarkUtils.isParent(parent)) return; // root node

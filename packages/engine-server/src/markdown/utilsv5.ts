@@ -39,6 +39,7 @@ import { userTags } from "./remark/userTags";
 import { backlinks } from "./remark/backlinks";
 import { hierarchies } from "./remark";
 import { extendedImage } from "./remark/extendedImage";
+export { remark2rehype };
 
 /**
  * What mode a processor should run in
@@ -166,6 +167,10 @@ function checkProps({
 }
 
 export class MDUtilsV5 {
+  static getProcEngine(proc: Processor) {
+    return { error: undefined, engine: this.getProcData(proc).engine };
+  }
+
   static getProcOpts(proc: Processor): ProcOptsV5 {
     const _data = proc.data("dendronProcOptsv5") as ProcOptsV5;
     return _data || {};
@@ -203,7 +208,15 @@ export class MDUtilsV5 {
     MDUtilsV4.setProcOpts(proc, opts);
     MDUtilsV4.setDendronData(proc, opts);
     const notes = _.isUndefined(opts.notes) ? opts?.engine?.notes : opts.notes;
-    return proc.data("dendronProcDatav5", { ..._data, ...opts, notes });
+    const config = _.isUndefined(opts.config)
+      ? opts?.engine?.config
+      : opts.config;
+    const payload: ProcDataFullV5 = { ..._data, ...opts, notes };
+    // NOTE: separate if statement to appease ts compiler
+    if (config) {
+      payload.config = config;
+    }
+    return proc.data("dendronProcDatav5", payload);
   }
 
   static setProcOpts(proc: Processor, opts: ProcOptsV5) {
@@ -276,8 +289,8 @@ export class MDUtilsV5 {
           MDUtilsV4.setEngine(proc, data.engine!);
 
           const isNoteRef = !_.isUndefined((data as ProcDataFullV5).noteRefLvl);
-
           const shouldInsertTitle = isNoteRef ? false : data.config?.useFMTitle;
+
           // NOTE: order matters. this needs to appear before `dendronPub`
           if (data.dest === DendronASTDest.HTML) {
             proc = proc.use(backlinks).use(hierarchies);
