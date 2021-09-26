@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`GIVEN mdx WHEN wikilink THEN output wikilink 1`] = `"<p>[[foo]]</p>"`;

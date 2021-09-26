@@ -6,7 +6,7 @@ import path from "path";
 import title from "title";
 import { URI } from "vscode-uri";
 import { CONSTANTS, ERROR_STATUS } from "./constants";
-import { DendronError } from "./error";
+import { DendronError, ErrorFactory } from "./error";
 import { Time } from "./time";
 import {
   DEngineClient,
@@ -34,6 +34,14 @@ import {
 import { getSlugger, isNotUndefined, randomColor } from "./utils";
 import { genUUID } from "./uuid";
 import { VaultUtils } from "./vault";
+
+const createMissingNoteErrorMsg = (opts: { fname: string; vname?: string }) => {
+  const out = [`No note with name ${opts.fname} found`];
+  if (opts.vname) {
+    out.push(`in vault ${opts.vname}`);
+  }
+  return out.join(" ");
+};
 
 /**
  * Utilities for dealing with nodes
@@ -679,6 +687,38 @@ export class NoteUtils {
     });
     return out;
   }
+
+  static getNoteByVname = ({
+    fname,
+    vname,
+    vaults,
+    notes,
+  }: {
+    fname: string;
+    vaults: DVault[];
+    notes: NotePropsDict;
+    vname?: string;
+  }) => {
+    const maybeVault = vname
+      ? VaultUtils.getVaultByName({
+          vaults,
+          vname,
+        })
+      : undefined;
+    const maybeNotes = NoteUtils.getNotesByFname({
+      fname,
+      notes,
+      vault: maybeVault,
+    });
+    if (maybeNotes.length === 0) {
+      return {
+        error: ErrorFactory.createInvalidStateError({
+          message: createMissingNoteErrorMsg({ fname, vname }),
+        }),
+      };
+    }
+    return { error: undefined, data: maybeNotes };
+  };
 
   /** If `to vault` is defined, returns note from that vault
    *  else searches all the vaults, to get the note with matching fname.
