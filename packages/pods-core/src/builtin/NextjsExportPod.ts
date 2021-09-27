@@ -128,7 +128,6 @@ export class NextjsExportPod extends ExportPod<NextjsExportConfig> {
       vault: note.vault,
       config: engineConfig,
       notes,
-      insideNoteRef: true,
     });
     const out = proc.stringify(node);
     const proc2 = MDUtilsV5.procRehypeFull(
@@ -138,6 +137,7 @@ export class NextjsExportPod extends ExportPod<NextjsExportConfig> {
         vault: note.vault,
         config: engineConfig,
         notes,
+        insideNoteRef: true,
       },
       { flavor: ProcFlavor.REGULAR }
     );
