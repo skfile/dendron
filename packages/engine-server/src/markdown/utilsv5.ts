@@ -231,7 +231,12 @@ export class MDUtilsV5 {
     return proc.data("dendronProcOptsv5", { ..._data, ...opts });
   }
 
-  static addRefId(
+  /**
+   * Write ref
+   * @param proc
+   * @param param1
+   */
+  static serializeRefId(
     proc: Processor,
     { refId, content }: { refId: NoteRefId; content: Parent }
   ) {

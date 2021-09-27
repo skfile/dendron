@@ -128,6 +128,7 @@ export class NextjsExportPod extends ExportPod<NextjsExportConfig> {
       vault: note.vault,
       config: engineConfig,
       notes,
+      insideNoteRef: true,
     });
     const out = proc.stringify(node);
     const proc2 = MDUtilsV5.procRehypeFull(
@@ -345,13 +346,18 @@ export class NextjsExportPod extends ExportPod<NextjsExportConfig> {
 
     // render refs
     const refsRoot = MDUtilsV5.getRefsRoot(wsRoot);
-    // doesn't matter what the note is, this is why we just take first note from list
-    const noteForRef = _.values(publishedNotes)[0];
     const refIds: string[] = await Promise.all(
       fs.readdirSync(refsRoot).map(async (ent) => {
         const { node, refId } = fs.readJSONSync(
           path.join(refsRoot, ent)
         ) as SerializedNoteRef;
+        const noteId = refId.id;
+        const noteForRef = _.get(engine.notes, noteId);
+
+        // shouldn't happen
+        if (!noteForRef) {
+          throw Error(`no note found for ${JSON.stringify(refId)}`);
+        }
         const out = await this._renderRef({
           engine,
           note: noteForRef,
