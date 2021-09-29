@@ -8,6 +8,7 @@ const isProd = process.env.NODE_ENV === 'production'
 
 
 // NOTE: __dirname is the dirname where this configuration file is located
+
 module.exports = withBundleAnalyzer({
   reactStrictMode: true,
   trailingSlash: true,
