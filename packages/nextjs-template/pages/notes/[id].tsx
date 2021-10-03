@@ -1,8 +1,4 @@
-import {
-  createLogger,
-  DendronNote,
-  LoadingStatus,
-} from "@dendronhq/common-frontend";
+import { createLogger, LoadingStatus } from "@dendronhq/common-frontend";
 import _ from "lodash";
 import {
   GetStaticPaths,
@@ -12,6 +8,7 @@ import {
 } from "next";
 import { useRouter } from "next/router";
 import React from "react";
+import { DendronNote } from "../../components/DendronNote";
 import DendronSEO from "../../components/DendronSEO";
 import DendronCustomHead from "../../components/DendronCustomHead";
 import DendronSpinner from "../../components/DendronSpinner";
@@ -58,8 +55,9 @@ export default function Note({
 }: NotePageProps) {
   const logger = createLogger("Note");
   const router = useRouter();
-  const [bodyFromState, setBody] =
-    React.useState<string | undefined>(undefined);
+  const [bodyFromState, setBody] = React.useState<string | undefined>(
+    undefined
+  );
   const { id } = router.query as NoteRouterQuery;
 
   // --- Hooks
@@ -110,7 +108,15 @@ export default function Note({
     <>
       <DendronSEO note={note} config={config} />
       {customHeadContent && <DendronCustomHead content={customHeadContent} />}
-      <div style={{ position: 'absolute', top: HEADER.HEIGHT + 40, right: 20, marginTop: 20, marginRight: 20}}>
+      <div
+        style={{
+          position: "absolute",
+          top: HEADER.HEIGHT + 40,
+          right: 20,
+          marginTop: 20,
+          marginRight: 20,
+        }}
+      >
         <DendronTOC note={note} offsetTop={HEADER.HEIGHT} />
       </div>
       <DendronNote noteContent={noteBody} />
