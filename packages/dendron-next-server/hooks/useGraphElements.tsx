@@ -526,6 +526,13 @@ const getSchemaGraphElements = (
   };
 };
 
+export class InfoGather {
+  static msgs: string[] = [];
+
+  static info(msg: string) {
+    InfoGather.msgs.push(msg);
+  }
+}
 const useGraphElements = ({
   type,
   engine,
@@ -594,6 +601,8 @@ const useGraphElements = ({
       const newSchemaCount = Object.keys(engine.schemas).length;
       if (schemaCount === newSchemaCount) return;
       setSchemaCount(newSchemaCount);
+
+      InfoGather.info("hi world message");
 
       setElements(getSchemaGraphElements(engine.schemas, engine.vaults));
     }

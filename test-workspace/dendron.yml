@@ -38,6 +38,8 @@ site:
 dev:
     enableWebUI: true
     enablePreviewV2: true
+    engineServerPort: 3005
+    nextServerUrl: http://localhost:3000
 commands:
     lookup:
         note:

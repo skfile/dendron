@@ -3,7 +3,7 @@ import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { EventHandler } from "cytoscape";
 import Graph from "../../components/graph";
-import useGraphElements from "../../hooks/useGraphElements";
+import useGraphElements, { InfoGather } from "../../hooks/useGraphElements";
 import { GraphConfig, graphConfig } from "../../lib/graph";
 import {
   DMessageSource,
@@ -62,14 +62,22 @@ export default function FullSchemaGraph({ engine, ide }: DendronProps) {
   }, [elements]);
 
   return (
-    <Graph
-      elements={elements}
-      onSelect={onSelect}
-      type="schema"
-      config={config}
-      setConfig={setConfig}
-      engine={engine}
-      ide={ide}
-    />
+    <div>
+      <div>
+        {InfoGather.msgs.map((msg) => (
+          <div>{msg}</div>
+        ))}
+      </div>
+
+      <Graph
+        elements={elements}
+        onSelect={onSelect}
+        type="schema"
+        config={config}
+        setConfig={setConfig}
+        engine={engine}
+        ide={ide}
+      />
+    </div>
   );
 }
