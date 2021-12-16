@@ -55,6 +55,7 @@ import { sentryReportingCallback } from "./utils/analytics";
 import { CalendarView } from "./views/CalendarView";
 import { DendronTreeView } from "./views/DendronTreeView";
 import { DendronTreeViewV2 } from "./views/DendronTreeViewV2";
+import { LookupView } from "./views/LookupView";
 import { SampleView } from "./views/SampleView";
 import { VSCodeUtils } from "./vsCodeUtils";
 import { WindowWatcher } from "./windowWatcher";
@@ -515,6 +516,14 @@ export class DendronExtension {
           vscode.window.registerWebviewViewProvider(
             CalendarView.viewType,
             calendarView
+          )
+        );
+
+        const lookupView = new LookupView();
+        context.subscriptions.push(
+          vscode.window.registerWebviewViewProvider(
+            LookupView.viewType,
+            lookupView
           )
         );
 
