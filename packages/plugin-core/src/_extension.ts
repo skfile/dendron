@@ -1092,7 +1092,11 @@ async function _setupCommands(
 }
 
 function _setupLanguageFeatures(context: vscode.ExtensionContext) {
-  const mdLangSelector = { language: "markdown", scheme: "*" };
+  const mdLangSelector: vscode.DocumentFilter = {
+    language: "markdown",
+    scheme: "*",
+  };
+  const anyLangSelector: vscode.DocumentFilter = { scheme: "*" };
   context.subscriptions.push(
     vscode.languages.registerReferenceProvider(
       mdLangSelector,
@@ -1101,7 +1105,8 @@ function _setupLanguageFeatures(context: vscode.ExtensionContext) {
   );
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider(
-      mdLangSelector,
+      // Allows definition provider to work for wikilinks in non-note files
+      anyLangSelector,
       new DefinitionProvider()
     )
   );
