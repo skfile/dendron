@@ -139,7 +139,7 @@ class OrbitUtils {
       twitter ||
       this.getNameFromEmail(email) ||
       orbitId;
-    return _.toLower(noteName);
+    return DNodeUtils.cleanFname(noteName);
   }
 
   static async getMember({
@@ -235,62 +235,56 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     const create: NoteProps[] = [];
     const notesToUpdate: UpdateNotesOpts[] = [];
     members.map((member) => {
-      const { email, id: orbitId } = member.attributes;
+      const { id: orbitId } = member.attributes;
       const social = OrbitUtils.getSocialAttributes(member);
 
-      if (
-        _.values({ ...social, email }).every(
-          (val) => _.isNull(val) || _.isUndefined(val)
-        )
-      ) {
-        this.L.error({ ctx: "memberToNotes", member });
-      } else {
-        let noteName = OrbitUtils.cleanName(member);
-        noteName = DNodeUtils.cleanFname(noteName);
-        this.L.debug({ ctx: "membersToNotes", msg: "enter", member });
-        let fname;
-        const note = NoteUtils.getNoteByFnameV5({
-          fname: `people.${noteName}`,
-          notes: engine.notes,
-          vault,
-          wsRoot,
-        });
+      const noteName = OrbitUtils.cleanName(member);
+      this.L.debug({ ctx: "membersToNotes", msg: "enter", member });
+      let fname;
 
-        if (!_.isUndefined(note)) {
-          const conflictData = this.getConflictedData({
-            note,
-            orbitMember: member,
-          });
-          if (conflictData.length > 0) {
-            fname = `people.orbit.duplicate.${Time.now().toFormat(
-              "y.MM.dd"
-            )}.${noteName}`;
-            conflicts.push({
-              conflictNote: note,
-              conflictEntry: NoteUtils.create({
-                fname,
-                vault,
-                custom: { ...config.frontmatter, orbitId, social },
-              }),
-              conflictData,
-            });
-          } else {
-            notesToUpdate.push({ note, member, engine });
-          }
-        } else {
-          fname = `people.${noteName}`;
-          create.push(
-            NoteUtils.create({
+      // check if note exists
+      const note = NoteUtils.getNoteByFnameV5({
+        fname: `people.${noteName}`,
+        notes: engine.notes,
+        vault,
+        wsRoot,
+      });
+
+      // if exists, check if we conflict
+      if (!_.isUndefined(note)) {
+        const conflictData = this.getConflictedData({
+          note,
+          orbitMember: member,
+        });
+        if (conflictData.length > 0) {
+          fname = `people.orbit.duplicate.${Time.now().toFormat(
+            "y.MM.dd"
+          )}.${noteName}`;
+          conflicts.push({
+            conflictNote: note,
+            conflictEntry: NoteUtils.create({
               fname,
               vault,
-              custom: {
-                ...config.frontmatter,
-                orbitId,
-                social,
-              },
-            })
-          );
+              custom: { ...config.frontmatter, orbitId, social },
+            }),
+            conflictData,
+          });
+        } else {
+          notesToUpdate.push({ note, member, engine });
         }
+      } else {
+        fname = `people.${noteName}`;
+        create.push(
+          NoteUtils.create({
+            fname,
+            vault,
+            custom: {
+              ...config.frontmatter,
+              orbitId,
+              social,
+            },
+          })
+        );
       }
     });
     await Promise.all(
@@ -310,13 +304,20 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     orbitMember: OrbitMemberData;
   }) => {
     const { note, orbitMember } = opts;
+
+    // look over social keys
     const customKeys = Object.values(SocialKeys);
+
+    // failsave in case social key doesn't exist
     if (!note.custom || !note.custom.social) {
       return [];
     }
     return customKeys.filter((key) => {
+      const noteSocialValue = note.custom.social[key];
       return (
-        note.custom.social[key] !== null &&
+        // check that the field is not empty
+        _.every([_.isNull, _.isUndefined], (fn) => !fn(noteSocialValue)) &&
+        // field is different
         orbitMember.attributes[key] !== note.custom.social[key]
       );
     });
