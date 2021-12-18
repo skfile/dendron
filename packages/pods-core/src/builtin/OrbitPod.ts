@@ -86,49 +86,41 @@ type OrbitImportPodCustomOpts = {
 
 type OrbitImportPodConfig = ImportPodConfig & OrbitImportPodCustomOpts;
 
-type MembersOpts = {
-  orbitId: string;
-  name: string | null;
-} & SocialData;
+enum SocialKeys {
+  github = "github",
+  discord = "discord",
+  linkedin = "linkedin",
+  twitter = "twitter",
+  email = "email",
+}
 
-type SocialData = {
-  github: string | null;
-  discord: string | null;
-  linkedin: string | null;
-  twitter: string | null;
-  // hn: string | null;
-  // website: string | null;
-  email: string | null;
-};
+type SocialData = Record<SocialKeys, string | null>;
+// hn: string | null;
+// website: string | null;
 
 type UpdateNotesOpts = {
   note: NoteProps;
   engine: DEngineClient;
-  social: Partial<MembersOpts>;
+  member: OrbitMemberData;
 };
 
 export type OrbitImportPodPlantOpts = ImportPodPlantOpts;
 
 class OrbitUtils {
-  static cleanMember(member: OrbitMemberData): MembersOpts {
-    const attributes = member.attributes;
-    const { id, name, github, discord, linkedin, twitter, email } = attributes;
-    return {
-      name,
-      github,
-      discord,
-      linkedin,
-      twitter,
-      orbitId: id,
-      email,
-    };
-  }
-
   static getNameFromEmail(email?: string | null): string | undefined {
     if (email) {
       return email.split("@")[0];
     }
     return;
+  }
+
+  static getSocialAttributes(member: OrbitMemberData) {
+    const keys = Object.values(SocialKeys);
+    const out: Partial<SocialData> = {};
+    keys.forEach((k) => {
+      out[k] = member.attributes[k];
+    });
+    return out;
   }
 
   /**
@@ -137,13 +129,9 @@ class OrbitUtils {
    * @returns
    */
   static cleanName({
-    name,
-    github,
-    discord,
-    twitter,
-    email,
-    orbitId,
-  }: MembersOpts) {
+    id: orbitId,
+    attributes: { name, github, discord, twitter, email },
+  }: OrbitMemberData) {
     const noteName =
       name ||
       github ||
@@ -165,7 +153,9 @@ class OrbitUtils {
     };
     const response = await axios.get(link, { headers });
     const member = response.data.data as OrbitMemberData;
-    return OrbitUtils.cleanMember(member);
+    // TODO
+    console.log(JSON.stringify(member));
+    return member;
   }
 }
 
@@ -210,23 +200,12 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     const headers = {
       Authorization: `Bearer ${token}`,
     };
-    const members: MembersOpts[] = [];
+    const members: OrbitMemberData[] = [];
     let next = null;
     try {
       const response = await axios.get(link, { headers });
-      response.data.data.forEach((member: any) => {
-        const attributes = member.attributes;
-        const { id, name, github, discord, linkedin, twitter, email } =
-          attributes;
-        members.push({
-          name,
-          github,
-          discord,
-          linkedin,
-          twitter,
-          orbitId: id,
-          email,
-        });
+      response.data.data.forEach((member: OrbitMemberData) => {
+        members.push(member);
         next = response.data.links.next;
       });
     } catch (error: any) {
@@ -245,7 +224,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
    * - updates previously imported notes if there are no conflicts
    */
   async membersToNotes(opts: {
-    members: MembersOpts[];
+    members: OrbitMemberData[];
     vault: DVault;
     engine: DEngineClient;
     wsRoot: string;
@@ -256,7 +235,8 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     const create: NoteProps[] = [];
     const notesToUpdate: UpdateNotesOpts[] = [];
     members.map((member) => {
-      const { name, email, orbitId, ...social } = member;
+      const { email, id: orbitId } = member.attributes;
+      const social = OrbitUtils.getSocialAttributes(member);
 
       if (
         _.values({ ...social, email }).every(
@@ -277,7 +257,10 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
         });
 
         if (!_.isUndefined(note)) {
-          const conflictData = this.getConflictedData({ note, social });
+          const conflictData = this.getConflictedData({
+            note,
+            orbitMember: member,
+          });
           if (conflictData.length > 0) {
             fname = `people.orbit.duplicate.${Time.now().toFormat(
               "y.MM.dd"
@@ -292,7 +275,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
               conflictData,
             });
           } else {
-            notesToUpdate.push({ note, social, engine });
+            notesToUpdate.push({ note, member, engine });
           }
         } else {
           fname = `people.${noteName}`;
@@ -311,19 +294,12 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
       }
     });
     await Promise.all(
-      notesToUpdate.map(({ note, social, engine }) => {
-        return this.updateNoteData({ note, social, engine });
+      notesToUpdate.map(({ note, member: social, engine }) => {
+        return this.updateNoteData({ note, orbitMember: social, engine });
       })
     );
 
     return { create, conflicts };
-  }
-
-  getNameFromEmail(email?: string): string | undefined {
-    if (email) {
-      return email.split("@")[0];
-    }
-    return;
   }
 
   /**
@@ -331,17 +307,17 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
    */
   getConflictedData = (opts: {
     note: NoteProps;
-    social: Partial<MembersOpts>;
+    orbitMember: OrbitMemberData;
   }) => {
-    const { note, social } = opts;
-    const customKeys = Object.keys(social);
+    const { note, orbitMember } = opts;
+    const customKeys = Object.values(SocialKeys);
     if (!note.custom || !note.custom.social) {
       return [];
     }
     return customKeys.filter((key) => {
       return (
         note.custom.social[key] !== null &&
-        social[key as keyof MembersOpts] !== note.custom.social[key]
+        orbitMember.attributes[key] !== note.custom.social[key]
       );
     });
   };
@@ -351,25 +327,24 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
    */
   updateNoteData = async (opts: {
     note: NoteProps;
-    social: Partial<MembersOpts>;
+    orbitMember: OrbitMemberData;
     engine: DEngineClient;
   }) => {
-    const { note, social, engine } = opts;
-    const customKeys = Object.keys(social);
+    const { note, orbitMember, engine } = opts;
+    const customKeys = Object.values(SocialKeys);
+    const social = orbitMember.attributes;
     let shouldUpdate = false;
     // init if not exist
     if (!note.custom.social) {
       note.custom.social = {};
     }
     customKeys.forEach((key) => {
-      if (
-        note.custom?.social[key] === null &&
-        social[key as keyof MembersOpts] !== null
-      ) {
-        note.custom.social[key] = social[key as keyof MembersOpts];
+      if (note.custom?.social[key] === null && social[key] !== null) {
+        note.custom.social[key] = social[key];
         shouldUpdate = true;
       }
     });
+    // orbit only keys
     if (shouldUpdate) {
       await engine.writeNote(note, { updateExisting: true });
     }
@@ -437,13 +412,13 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
 
   async getSingleMember(
     config: Required<OrbitImportPodCustomOpts>
-  ): Promise<MembersOpts[]> {
+  ): Promise<OrbitMemberData[]> {
     return [await OrbitUtils.getMember(config)];
   }
 
   async getAllMembers({ token, workspaceSlug }: OrbitImportPodConfig) {
     let next = "";
-    let members: MembersOpts[] = [];
+    let members: OrbitMemberData[] = [];
     while (next !== null) {
       // eslint-disable-next-line no-await-in-loop
       const result = await this.getMembersFromOrbit({
