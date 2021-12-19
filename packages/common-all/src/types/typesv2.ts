@@ -376,6 +376,7 @@ export type DCommonProps = {
   vaults: DVault[];
   links: DLink[];
   config: IntermediateDendronConfig;
+  fastMode?: boolean;
 };
 
 export type NoteChangeUpdateEntry = {
