@@ -4,6 +4,7 @@ import { JSONSchemaType } from "ajv";
 import { ConflictHandler, PodUtils } from "../utils";
 import {
   Conflict,
+  DateTime,
   DendronError,
   DEngineClient,
   DNodeUtils,
@@ -83,6 +84,10 @@ type OrbitImportPodCustomOpts = {
    * Single orbit id to import
    */
   orbitId?: string;
+  /**
+   * If set, always overwrite on conflict
+   */
+  overwriteAll?: boolean;
 };
 
 type OrbitImportPodConfig = ImportPodConfig & OrbitImportPodCustomOpts;
@@ -154,8 +159,6 @@ class OrbitUtils {
     };
     const response = await axios.get(link, { headers });
     const member = response.data.data as OrbitMemberData;
-    // TODO
-    console.log(JSON.stringify(member));
     return member;
   }
 }
@@ -229,8 +232,9 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     vault: DVault;
     engine: DEngineClient;
     wsRoot: string;
-    config: ImportPodConfig;
+    config: OrbitImportPodConfig;
   }) {
+    const ctx = "membersToNotes";
     const { vault, members, engine, wsRoot, config } = opts;
     const conflicts: Conflict[] = [];
     const create: NoteProps[] = [];
@@ -258,7 +262,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
       const social = OrbitUtils.getSocialAttributes(member);
 
       const noteName = OrbitUtils.cleanName(member);
-      this.L.debug({ ctx: "membersToNotes", msg: "enter", member });
+      this.L.debug({ ctx, msg: "enter", member });
       let fname;
 
       // get note
@@ -294,16 +298,19 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
           birthday,
           location,
           name,
+          last_imported_to_dendron: DateTime.now().toISO(),
         },
       };
 
       // if exists, check if we conflict
       if (!_.isUndefined(note)) {
+        this.L.debug({ ctx, state: "getConflictData:pre", msg: "note found" });
         const conflictData = this.getConflictedData({
           note,
           orbitMember: member,
         });
         if (conflictData.length > 0) {
+          this.L.debug({ ctx, msg: "conflict found" });
           fname = `people.orbit.duplicate.${Time.now().toFormat(
             "y.MM.dd"
           )}.${noteName}`;
@@ -312,11 +319,14 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
             conflictEntry: NoteUtils.create({
               fname,
               vault,
-              custom: { ...config.frontmatter, ...orbitData },
+              custom: { ...config.frontmatter, ...note.custom, ...orbitData },
+              body: note.body,
             }),
             conflictData,
           });
         } else {
+          this.L.debug({ ctx, msg: "no conflict found" });
+          // if no conflict, we'll update these notes
           notesToUpdate.push({ note, member, engine });
         }
       } else {
@@ -333,6 +343,9 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
         );
       }
     });
+
+    this.L.debug({ ctx, state: "updateNoteData:pre" });
+    // update all notes that can be updated
     await Promise.all(
       notesToUpdate.map(({ note, member: social, engine }) => {
         return this.updateNoteData({ note, orbitMember: social, engine });
@@ -400,6 +413,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
   async onConflict(opts: {
     conflicts: Conflict[];
     index: number;
+    config: OrbitImportPodConfig;
     handleConflict: (
       conflict: Conflict,
       conflictResolveOpts: PodConflictResolveOpts
@@ -411,13 +425,18 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     const {
       conflicts,
       handleConflict,
+      config,
       engine,
       conflictResolvedNotes,
       conflictResolveOpts,
     } = opts;
     let { index } = opts;
     const conflict = conflicts[index];
-    const resp = await handleConflict(conflict, conflictResolveOpts);
+
+    // if overwrite all is set, then don't prompt user
+    const resp = config.overwriteAll
+      ? MergeConflictOptions.OVERWRITE_LOCAL
+      : await handleConflict(conflict, conflictResolveOpts);
     switch (resp) {
       case MergeConflictOptions.OVERWRITE_LOCAL: {
         conflict.conflictEntry.fname = conflict.conflictNote.fname;
@@ -438,6 +457,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     if (index < conflicts.length - 1) {
       return this.onConflict({
         conflicts,
+        config,
         engine,
         index: index + 1,
         handleConflict,
@@ -458,7 +478,8 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
   }
 
   async getSingleMember(
-    config: Required<OrbitImportPodCustomOpts>
+    config: Required<OrbitImportPodCustomOpts> &
+      Pick<OrbitImportPodConfig, "overwriteAll">
   ): Promise<OrbitMemberData[]> {
     this.L.info({ ctx: "getSingleMember", state: "enter" });
     return [await OrbitUtils.getMember(config)];
@@ -515,7 +536,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
       vault,
       engine,
       wsRoot,
-      config,
+      config: orbitConfig,
     });
     const conflictNoteArray = conflicts.map(
       (conflict) => conflict.conflictNote
@@ -536,6 +557,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
       conflicts.length > 0
         ? await this.onConflict({
             conflicts,
+            config: orbitConfig,
             handleConflict,
             engine,
             index: 0,
