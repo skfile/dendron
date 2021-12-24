@@ -746,6 +746,7 @@ export enum NoteViewMessageEnum {
 export enum LookupViewMessageEnum {
   "onUpdate" = "onUpdate",
   "onValuesChange" = "onValuesChange",
+  "onRequestControllerState" = "onRequestControllerState",
 }
 
 export enum ThemeMessageType {
@@ -801,7 +802,4 @@ export type SeedBrowserMessage = DMessage<
   { data: any }
 >;
 
-export type LookupViewMessage = DMessage<
-  LookupViewMessageEnum,
-  { changedValues: any; allValues: any }
->;
+export type LookupViewMessage = DMessage<LookupViewMessageEnum, any>;
