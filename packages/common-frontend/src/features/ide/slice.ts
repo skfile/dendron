@@ -2,6 +2,7 @@ import {
   DendronTreeViewKey,
   DendronEditorViewKey,
   NoteProps,
+  LookupModifierStatePayload,
 } from "@dendronhq/common-all";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 // @ts-ignore
@@ -19,6 +20,7 @@ type InitialState = {
     };
   };
   seedsInWorkspace: string[] | undefined; // Contains the seed ID's
+  lookupModifiers: LookupModifierStatePayload;
 };
 
 export { InitialState as IDEState };
@@ -52,6 +54,12 @@ export const ideSlice = createSlice({
     ) => {
       const { key, ready } = action.payload;
       state.views[key].ready = ready;
+    },
+    refreshLookup: (
+      state,
+      action: PayloadAction<LookupModifierStatePayload>
+    ) => {
+      state.lookupModifiers = action.payload;
     },
     setSeedsInWorkspace: (state, action: PayloadAction<string[]>) => {
       state.seedsInWorkspace = action.payload;
