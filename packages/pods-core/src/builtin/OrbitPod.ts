@@ -262,7 +262,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
       let fname;
 
       // get note
-      fname = `people.${noteName}`;
+      fname = config.destName ? config.destName : `people.${noteName}`;
 
       const note = engine.fastMode
         ? FileUtils.getNoteByFile({ fname, vault, wsRoot })
@@ -278,7 +278,6 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
         orbitId,
         social,
         orbit: {
-          id: orbitId,
           first_activity_occurred_at,
           last_activity_occurred_at,
           company,

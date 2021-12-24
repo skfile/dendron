@@ -109,6 +109,9 @@ export type ImportPodConfig = {
    */
   vaultName: string;
   concatenate?: boolean;
+  /**
+   * If set, what note to target
+   */
   destName?: string;
   frontmatter?: any;
   fnameAsId?: boolean;
