@@ -516,4 +516,28 @@ export async function findNonNoteFile(opts: {
   return undefined;
 }
 
+export class FileUtils {
+  /**
+   * Get a note by reading it from disk
+   * @param param0
+   * @returns
+   */
+  static getNoteByFile({
+    fname,
+    vault,
+    wsRoot,
+  }: {
+    fname: string;
+    vault: DVault;
+    wsRoot: string;
+  }): NoteProps | undefined {
+    const vpath = vault2Path({ vault, wsRoot });
+    const fpath = path.join(vpath, fname + ".md");
+    if (!fs.existsSync(fpath)) {
+      return undefined;
+    }
+    return file2Note(fpath, vault, true);
+  }
+}
+
 export { tmp, DirResult };
