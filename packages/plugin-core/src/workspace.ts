@@ -494,6 +494,10 @@ export class DendronExtension {
     this.getWorkspaceImplOrThrow().engine = engine;
   }
 
+  getTreeView(key: DendronTreeViewKey) {
+    return this.treeViews[key];
+  }
+
   async setupViews(context: vscode.ExtensionContext) {
     const ctx = "setupViews";
     HistoryService.instance().subscribe("extension", async (event) => {
@@ -520,6 +524,7 @@ export class DendronExtension {
         );
 
         const lookupView = new LookupView();
+        this.treeViews[DendronTreeViewKey.LOOKUP_VIEW] = lookupView;
         context.subscriptions.push(
           vscode.window.registerWebviewViewProvider(
             LookupView.viewType,
