@@ -1,5 +1,6 @@
 import { LogLvl } from "@dendronhq/common-server";
 import express from "express";
+import { Server as HttpServer } from "http";
 import { Socket } from "net";
 import { configureLogger, getLogger } from "./core";
 
@@ -21,7 +22,7 @@ export type ServerClose = ReturnType<
 >["close"];
 export type Server = {
   close: ServerClose;
-};
+} & HttpServer;
 
 function launchv2(
   opts?: {} & LaunchOpts
