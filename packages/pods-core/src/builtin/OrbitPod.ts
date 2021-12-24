@@ -301,6 +301,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
           last_imported_to_dendron: DateTime.now().toISO(),
         },
       };
+      const noteCustom = _.defaultsDeep(note?.custom || {}, orbitData);
 
       // if exists, check if we conflict
       if (!_.isUndefined(note)) {
@@ -319,7 +320,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
             conflictEntry: NoteUtils.create({
               fname,
               vault,
-              custom: { ...config.frontmatter, ...note.custom, ...orbitData },
+              custom: { ...config.frontmatter, ...noteCustom },
               body: note.body,
             }),
             conflictData,
@@ -337,7 +338,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
             vault,
             custom: {
               ...config.frontmatter,
-              ...orbitData,
+              ...noteCustom,
             },
           })
         );
