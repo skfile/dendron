@@ -1,5 +1,6 @@
 import {
   DendronError,
+  DendronTreeViewKey,
   DNodeType,
   ERROR_STATUS,
   LookupEvents,
@@ -10,8 +11,9 @@ import { CancellationTokenSource, QuickInputButton } from "vscode";
 import { DENDRON_COMMANDS } from "../../constants";
 import { Logger } from "../../logger";
 import { AnalyticsUtils } from "../../utils/analytics";
+import { LookupView } from "../../views/LookupView";
 import { VSCodeUtils } from "../../vsCodeUtils";
-import { DendronExtension, getDWorkspace } from "../../workspace";
+import { DendronExtension, getDWorkspace, getExtension } from "../../workspace";
 import {
   ButtonCategory,
   DendronBtn,
@@ -71,6 +73,7 @@ export class LookupControllerV3 {
   public _quickpick?: DendronQuickPickerV2;
   public fuzzThreshold: number;
   public _provider?: ILookupProviderV3;
+  public _view?: LookupView;
 
   static create(opts?: LookupControllerV3CreateOpts) {
     const { vaults } = getDWorkspace();
@@ -117,6 +120,12 @@ export class LookupControllerV3 {
     };
     this.fuzzThreshold = opts.fuzzThreshold || 0.6;
     this._cancelTokenSource = VSCodeUtils.createCancelSource();
+
+    // wire up lookup controller to lookup view
+    this._view = getExtension().getTreeView(
+      DendronTreeViewKey.LOOKUP_VIEW
+    ) as LookupView;
+    this._view.registerController(this);
   }
 
   get quickpick(): DendronQuickPickerV2 {
@@ -245,6 +254,7 @@ export class LookupControllerV3 {
     this._quickpick?.dispose();
     this._quickpick = undefined;
     this._cancelTokenSource?.dispose();
+    this._view?.deregisterController();
     Logger.info({ ctx, msg: "exit" });
   }
 
