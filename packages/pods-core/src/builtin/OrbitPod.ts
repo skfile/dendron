@@ -18,6 +18,7 @@ import {
 } from "@dendronhq/common-all";
 import axios from "axios";
 import _ from "lodash";
+import { FileUtils } from "@dendronhq/common-server";
 
 const ID = "dendron.orbit";
 
@@ -235,20 +236,67 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     const create: NoteProps[] = [];
     const notesToUpdate: UpdateNotesOpts[] = [];
     members.map((member) => {
-      const { id: orbitId } = member.attributes;
+      const {
+        id: orbitId,
+        first_activity_occurred_at,
+        last_activity_occurred_at,
+        company,
+        orbit_level,
+        orbit_url,
+        reach,
+        love,
+        slug,
+        tag_list,
+        shipping_address,
+        updated_at,
+        activities_count,
+        avatar_url,
+        birthday,
+        location,
+        name,
+      } = member.attributes;
       const social = OrbitUtils.getSocialAttributes(member);
 
       const noteName = OrbitUtils.cleanName(member);
       this.L.debug({ ctx: "membersToNotes", msg: "enter", member });
       let fname;
 
-      // check if note exists
-      const note = NoteUtils.getNoteByFnameV5({
-        fname: `people.${noteName}`,
-        notes: engine.notes,
-        vault,
-        wsRoot,
-      });
+      // get note
+      fname = `people.${noteName}`;
+
+      const note = engine.fastMode
+        ? FileUtils.getNoteByFile({ fname, vault, wsRoot })
+        : NoteUtils.getNoteByFnameV5({
+            fname: `people.${noteName}`,
+            notes: engine.notes,
+            vault,
+            wsRoot,
+          });
+
+      const orbitData = {
+        // TODO: remove
+        orbitId,
+        social,
+        orbit: {
+          id: orbitId,
+          first_activity_occurred_at,
+          last_activity_occurred_at,
+          company,
+          orbit_level,
+          orbit_url,
+          reach,
+          love,
+          slug,
+          tag_list,
+          shipping_address,
+          updated_at,
+          activities_count,
+          avatar_url,
+          birthday,
+          location,
+          name,
+        },
+      };
 
       // if exists, check if we conflict
       if (!_.isUndefined(note)) {
@@ -265,7 +313,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
             conflictEntry: NoteUtils.create({
               fname,
               vault,
-              custom: { ...config.frontmatter, orbitId, social },
+              custom: { ...config.frontmatter, ...orbitData },
             }),
             conflictData,
           });
@@ -280,8 +328,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
             vault,
             custom: {
               ...config.frontmatter,
-              orbitId,
-              social,
+              ...orbitData,
             },
           })
         );
@@ -414,10 +461,12 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
   async getSingleMember(
     config: Required<OrbitImportPodCustomOpts>
   ): Promise<OrbitMemberData[]> {
+    this.L.info({ ctx: "getSingleMember", state: "enter" });
     return [await OrbitUtils.getMember(config)];
   }
 
   async getAllMembers({ token, workspaceSlug }: OrbitImportPodConfig) {
+    this.L.info({ ctx: "getAllMembers", state: "enter" });
     let next = "";
     let members: OrbitMemberData[] = [];
     while (next !== null) {
@@ -453,7 +502,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
 
   async plant(opts: OrbitImportPodPlantOpts) {
     const ctx = "OrbitImportPod";
-    this.L.info({ ctx, msg: "enter" });
+    this.L.info({ ctx, state: "enter" });
     const { vault, config, engine, wsRoot, utilityMethods } = opts;
     const orbitConfig = config as OrbitImportPodConfig;
     const { orbitId } = orbitConfig;
