@@ -67,7 +67,7 @@ type OrbitMemberData = {
     orbit_url: string;
     created: false;
     id: string;
-    orbit_level: number;
+    orbit_level: string;
     // decimal string
     love: string;
     twitter: null | string;
@@ -159,7 +159,10 @@ class OrbitUtils {
     const keys = Object.values(ContactKeys);
     const out: Partial<ContactData> = {};
     keys.forEach((k) => {
-      out[k] = member.attributes[k];
+      // strip out null values
+      if (!_.isNull(member.attributes[k])) {
+        out[k] = member.attributes[k];
+      }
     });
     return out;
   }
@@ -645,7 +648,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
         first_activity_occurred_at,
         last_activity_occurred_at,
         company,
-        orbit_level,
+        orbit_level: parseFloat(orbit_level),
         orbit_url,
         reach,
         love,
