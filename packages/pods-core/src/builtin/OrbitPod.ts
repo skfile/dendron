@@ -1,7 +1,4 @@
 /* eslint-disable camelcase */
-import { ImportPod, ImportPodConfig, ImportPodPlantOpts } from "../basev3";
-import { JSONSchemaType } from "ajv";
-import { ConflictHandler, PodUtils } from "../utils";
 import {
   Conflict,
   DateTime,
@@ -11,17 +8,33 @@ import {
   DVault,
   ERROR_SEVERITY,
   MergeConflictOptions,
+  NoteChangeEntry,
   NoteProps,
   NoteUtils,
   PodConflictResolveOpts,
+  RespV3,
   stringifyError,
   Time,
 } from "@dendronhq/common-all";
+import { FileUtils } from "@dendronhq/common-server";
+import { JSONSchemaType } from "ajv";
 import axios from "axios";
 import _ from "lodash";
-import { FileUtils } from "@dendronhq/common-server";
+import { ImportPod, ImportPodConfig, ImportPodPlantOpts } from "../basev3";
+import { ConflictHandler, PodUtils } from "../utils";
 
 const ID = "dendron.orbit";
+
+type OrbitAPICommonParams = {
+  token: string;
+  workspaceSlug: string;
+};
+type OrbitAPIMemberFindParams = {
+  params: {
+    source: string;
+    username: string;
+  };
+} & OrbitAPICommonParams;
 
 type OrbitMemberData = {
   id: string;
@@ -71,6 +84,22 @@ type OrbitMemberData = {
   };
 };
 
+// type ImportDestination = {
+//   type: "note" | "hierarchy" | "vault";
+//   value: string;
+// };
+
+type ImportPodCleanCommonProps = {
+  config: OrbitImportPodConfig;
+  engine: DEngineClient;
+  vault: DVault;
+};
+
+type ImportCleanResp = {
+  update: NoteProps[];
+  create: NoteProps[];
+};
+
 type OrbitImportPodCustomOpts = {
   /**
    * orbit workspace slug
@@ -88,9 +117,12 @@ type OrbitImportPodCustomOpts = {
    * If set, always overwrite on conflict
    */
   overwriteAll?: boolean;
+  // dest: ImportDestination;
+  method: "find";
+  query: any;
 };
 
-type OrbitImportPodConfig = ImportPodConfig & OrbitImportPodCustomOpts;
+export type OrbitImportPodConfig = ImportPodConfig & OrbitImportPodCustomOpts;
 
 enum SocialKeys {
   github = "github",
@@ -161,6 +193,20 @@ class OrbitUtils {
     const member = response.data.data as OrbitMemberData;
     return member;
   }
+
+  static async findMember({
+    token,
+    workspaceSlug,
+    params,
+  }: OrbitAPIMemberFindParams) {
+    const link = `https://app.orbit.love/api/v1/${workspaceSlug}/members/find`;
+    const headers = {
+      Authorization: `Bearer ${token}`,
+    };
+    const response = await axios.get(link, { headers, params });
+    const member = response.data.data as OrbitMemberData;
+    return member;
+  }
 }
 
 export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
@@ -193,7 +239,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
    * @returns members
    */
   getMembersFromOrbit = async (
-    opts: OrbitImportPodCustomOpts & { link: string }
+    opts: OrbitAPICommonParams & { link: string }
   ): Promise<any> => {
     const { token, workspaceSlug } = opts;
     let { link } = opts;
@@ -486,7 +532,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     return [await OrbitUtils.getMember(config)];
   }
 
-  async getAllMembers({ token, workspaceSlug }: OrbitImportPodConfig) {
+  async getAllMembers({ token, workspaceSlug }: OrbitAPICommonParams) {
     this.L.info({ ctx: "getAllMembers", state: "enter" });
     let next = "";
     let members: OrbitMemberData[] = [];
@@ -521,17 +567,155 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     return `\nWe noticed different fields for user ${conflict.conflictNote.title} in the note: ${conflict.conflictNote.fname}. ${conflictentries}\n`;
   }
 
+  async fetch({ method, query, workspaceSlug, token }: OrbitImportPodConfig) {
+    if (method === "find") {
+      // TODO: validate
+      const params = query as OrbitAPIMemberFindParams["params"];
+      const resp = await OrbitUtils.findMember({
+        token,
+        workspaceSlug,
+        params,
+      });
+      return [resp];
+    } else {
+      throw new DendronError({ message: `not implemented: method ${method}` });
+    }
+  }
+
+  entity2Note({
+    ent,
+    config,
+    engine,
+    vault,
+  }: {
+    ent: OrbitMemberData;
+    config: OrbitImportPodConfig;
+    engine: DEngineClient;
+    vault: DVault;
+  }): NoteChangeEntry {
+    const {
+      id: orbitId,
+      first_activity_occurred_at,
+      last_activity_occurred_at,
+      company,
+      orbit_level,
+      orbit_url,
+      reach,
+      love,
+      slug,
+      tag_list,
+      shipping_address,
+      updated_at,
+      activities_count,
+      avatar_url,
+      birthday,
+      location,
+      name,
+    } = ent.attributes;
+    const social = OrbitUtils.getSocialAttributes(ent);
+    const noteName = OrbitUtils.cleanName(ent);
+    const fname = config.destName ? config.destName : `people.${noteName}`;
+    const { wsRoot } = engine;
+    const notePrev = engine.fastMode
+      ? FileUtils.getNoteByFile({ fname, vault, wsRoot })
+      : NoteUtils.getNoteByFnameFromEngine({
+          fname: `people.${noteName}`,
+          vault,
+          engine,
+        });
+    const orbitData = {
+      // TODO: remove
+      social,
+      orbit: {
+        id: orbitId,
+        first_activity_occurred_at,
+        last_activity_occurred_at,
+        company,
+        orbit_level,
+        orbit_url,
+        reach,
+        love,
+        slug,
+        tag_list,
+        shipping_address,
+        updated_at,
+        activities_count,
+        avatar_url,
+        birthday,
+        location,
+        name,
+        last_imported_to_dendron: DateTime.now().toISO(),
+      },
+    };
+    const noteCustom = _.defaultsDeep(notePrev?.custom || {}, orbitData);
+
+    if (!_.isUndefined(notePrev)) {
+      return {
+        note: noteCustom,
+        status: "update",
+        prevNote: notePrev,
+      };
+    }
+    return {
+      note: noteCustom,
+      status: "create",
+    };
+  }
+
+  async clean({
+    data,
+    config,
+    engine,
+    vault,
+  }: {
+    data: OrbitMemberData[];
+  } & ImportPodCleanCommonProps): Promise<RespV3<ImportCleanResp>> {
+    const resp: ImportCleanResp = {
+      create: [],
+      update: [],
+    };
+    data.map((ent) => {
+      const { note, status } = this.entity2Note({ ent, config, engine, vault });
+      if (status === "create") {
+        resp.create.push(note);
+      } else if (status === "update") {
+        resp.update.push(note);
+      }
+    });
+    return { data: resp };
+  }
+
   async plant(opts: OrbitImportPodPlantOpts) {
     const ctx = "OrbitImportPod";
     this.L.info({ ctx, state: "enter" });
+    const { vault, config, engine } = opts;
+    const orbitConfig = config as OrbitImportPodConfig;
+    const data = await this.fetch(orbitConfig);
+    const { error, data: cleanData } = await this.clean({
+      data,
+      config: orbitConfig,
+      vault,
+      engine,
+    });
+    if (error) {
+      return { error, importedNotes: [] };
+    }
+    return {
+      importedNotes: [],
+      created: cleanData?.create,
+      updated: cleanData?.update,
+    };
+  }
+
+  async plantOld(opts: OrbitImportPodPlantOpts) {
     const { vault, config, engine, wsRoot, utilityMethods } = opts;
     const orbitConfig = config as OrbitImportPodConfig;
-    const { orbitId } = orbitConfig;
-
-    const members = !_.isUndefined(orbitId)
-      ? // required for typescript compiler to know `orbitId` is not undefined
-        await this.getSingleMember({ ...orbitConfig, orbitId })
-      : await this.getAllMembers(orbitConfig);
+    // const { orbitId, dest } = orbitConfig;
+    // const members = !_.isUndefined(orbitId)
+    //   ? // required for typescript compiler to know `orbitId` is not undefined
+    //     await this.getSingleMember({ ...orbitConfig, orbitId })
+    //   : await this.getAllMembers(orbitConfig);
+    const members = [] as any;
     const { create, conflicts } = await this.membersToNotes({
       members,
       vault,

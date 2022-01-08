@@ -122,6 +122,16 @@ export type ImportPodExecuteOpts<T extends ImportPodConfig = ImportPodConfig> =
 export type ImportPodPlantOpts<T extends ImportPodConfig = ImportPodConfig> =
   Omit<ImportPodExecuteOpts<T>, "src"> & { src: URI; vault: DVault };
 
+export type ImportPodPlantReturn = {
+  /**
+    @deprecated use created & updated instead
+     */
+  importedNotes: NoteProps[];
+  errors?: Item[];
+  created?: NoteProps[];
+  updated?: NoteProps[];
+};
+
 export abstract class ImportPod<T extends ImportPodConfig = ImportPodConfig> {
   public L: DLogger;
   static kind = "import" as PodKind;
@@ -147,9 +157,7 @@ export abstract class ImportPod<T extends ImportPodConfig = ImportPodConfig> {
 
     return this.plant({ ...opts, src: srcURL, vault });
   }
-  abstract plant(
-    opts: ImportPodPlantOpts<T>
-  ): Promise<{ importedNotes: NoteProps[]; errors?: Item[] }>;
+  abstract plant(opts: ImportPodPlantOpts<T>): Promise<ImportPodPlantReturn>;
 }
 
 // === Export Pod
@@ -246,6 +254,7 @@ export abstract class ExportPod<
     try {
       return await this.plant({ ...opts, dest: destURL, notes });
     } catch (err: any) {
+      // eslint-disable-next-line no-console
       console.log("error", stringifyError(err));
       throw err;
     }
