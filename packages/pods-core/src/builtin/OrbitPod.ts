@@ -124,17 +124,20 @@ type OrbitImportPodCustomOpts = {
 
 export type OrbitImportPodConfig = ImportPodConfig & OrbitImportPodCustomOpts;
 
+enum ContactKeys {
+  email = "email",
+}
+
 enum SocialKeys {
   github = "github",
   discord = "discord",
   linkedin = "linkedin",
   twitter = "twitter",
-  email = "email",
+  //email = "email",
 }
 
+type ContactData = Record<ContactKeys, string | null>;
 type SocialData = Record<SocialKeys, string | null>;
-// hn: string | null;
-// website: string | null;
 
 type UpdateNotesOpts = {
   note: NoteProps;
@@ -150,6 +153,15 @@ class OrbitUtils {
       return email.split("@")[0];
     }
     return;
+  }
+
+  static getContactAttributes(member: OrbitMemberData) {
+    const keys = Object.values(ContactKeys);
+    const out: Partial<ContactData> = {};
+    keys.forEach((k) => {
+      out[k] = member.attributes[k];
+    });
+    return out;
   }
 
   static getSocialAttributes(member: OrbitMemberData) {
@@ -306,6 +318,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
         name,
       } = member.attributes;
       const social = OrbitUtils.getSocialAttributes(member);
+      const contact = OrbitUtils.getContactAttributes(member);
 
       const noteName = OrbitUtils.cleanName(member);
       this.L.debug({ ctx, msg: "enter", member });
@@ -324,9 +337,9 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
           });
 
       const orbitData = {
-        // TODO: remove
         orbitId,
         social,
+        contact,
         orbit: {
           first_activity_occurred_at,
           last_activity_occurred_at,
@@ -613,6 +626,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
       name,
     } = ent.attributes;
     const social = OrbitUtils.getSocialAttributes(ent);
+    const contact = OrbitUtils.getContactAttributes(ent);
     const noteName = OrbitUtils.cleanName(ent);
     const fname = config.destName ? config.destName : `people.${noteName}`;
     const { wsRoot } = engine;
@@ -624,7 +638,7 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
           engine,
         });
     const orbitData = {
-      // TODO: remove
+      contact,
       social,
       orbit: {
         id: orbitId,
@@ -647,17 +661,17 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
         last_imported_to_dendron: DateTime.now().toISO(),
       },
     };
-    const noteCustom = _.defaultsDeep(notePrev?.custom || {}, orbitData);
 
     if (!_.isUndefined(notePrev)) {
+      const custom = _.defaultsDeep(notePrev?.custom || {}, orbitData);
       return {
-        note: noteCustom,
+        note: { ...notePrev, custom },
         status: "update",
         prevNote: notePrev,
       };
     }
     return {
-      note: noteCustom,
+      note: NoteUtils.create({ fname, custom: orbitData, vault }),
       status: "create",
     };
   }
@@ -691,19 +705,27 @@ export class OrbitImportPod extends ImportPod<OrbitImportPodConfig> {
     const { vault, config, engine } = opts;
     const orbitConfig = config as OrbitImportPodConfig;
     const data = await this.fetch(orbitConfig);
-    const { error, data: cleanData } = await this.clean({
+    const resp = await this.clean({
       data,
       config: orbitConfig,
       vault,
       engine,
     });
-    if (error) {
-      return { error, importedNotes: [] };
+    if (resp.error) {
+      return { error: resp.error, importedNotes: [] };
     }
+    this.L.info({ ctx, state: "pre:addCreatedNotes" });
+    await engine.bulkAddNotes({ notes: resp.data.create });
+    this.L.info({ ctx, state: "pre:updateExistingNotes" });
+    await Promise.all(
+      resp.data.update.map((note) => {
+        return engine.writeNote(note, { updateExisting: true });
+      })
+    );
     return {
       importedNotes: [],
-      created: cleanData?.create,
-      updated: cleanData?.update,
+      created: resp.data.create,
+      updated: resp.data.update,
     };
   }
 
