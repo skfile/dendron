@@ -1,9 +1,9 @@
 import {
   assert,
   BulkAddNoteOpts,
+  ConfigUtils,
   CONSTANTS,
   DendronCompositeError,
-  IntermediateDendronConfig,
   DendronError,
   DEngineClient,
   DEngineDeleteSchemaResp,
@@ -12,6 +12,7 @@ import {
   DHookEntry,
   DLink,
   DNoteAnchorPositioned,
+  DNoteLoc,
   DStore,
   DVault,
   EngineDeleteNotePayload,
@@ -19,20 +20,25 @@ import {
   EngineUpdateNodesOptsV2,
   EngineWriteOptsV2,
   error2PlainObject,
+  ErrorFactory,
+  ErrorUtils,
   ERROR_SEVERITY,
   ERROR_STATUS,
   IDendronError,
+  IntermediateDendronConfig,
   isNotUndefined,
   NoteChangeEntry,
+  NoteChangeUpdateEntry,
+  NoteFNamesDict,
   NoteProps,
   NotePropsDict,
-  NoteFNamesDict,
   NotesCache,
   NotesCacheEntryMap,
   NoteUtils,
   RenameNoteOpts,
   RenameNotePayload,
   ResponseUtil,
+  RespV3,
   SchemaModuleDict,
   SchemaModuleProps,
   SchemaUtils,
@@ -40,12 +46,9 @@ import {
   stringifyError,
   TAGS_HIERARCHY,
   USERS_HIERARCHY,
+  USER_MESSAGES,
   VaultUtils,
   WriteNoteResp,
-  ConfigUtils,
-  USER_MESSAGES,
-  DNoteLoc,
-  NoteChangeUpdateEntry,
 } from "@dendronhq/common-all";
 import {
   DLogger,
@@ -62,10 +65,10 @@ import _ from "lodash";
 import path from "path";
 import { AnchorUtils, LinkUtils } from "../../markdown/remark/utils";
 import { HookUtils, RequireHookResp } from "../../topics/hooks";
+import { InMemoryNoteCache } from "../../util/inMemoryNoteCache";
 import { readNotesFromCache, writeNotesToCache } from "../../utils";
 import { NoteParser } from "./noteParser";
 import { SchemaParser } from "./schemaParser";
-import { InMemoryNoteCache } from "../../util/inMemoryNoteCache";
 
 export type FileMeta = {
   // file name: eg. foo.md, name = foo
@@ -170,6 +173,7 @@ export class FileStorage implements DStore {
    * the parent of this note needs to have the old note removed (because the id is now different)
    * the new note needs to have the old note's children
    */
+  // @ts-ignore
   private replacePrevNoteWithNewNote({
     prevNote,
     nextNote,
