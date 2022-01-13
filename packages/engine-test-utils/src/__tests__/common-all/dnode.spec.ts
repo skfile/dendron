@@ -1,10 +1,13 @@
 import {
-  NoteUtils,
-  SchemaUtils,
+  DNodeUtils,
   DVault,
-  SchemaOpts,
   NoteProps,
+  NoteUtils,
+  SchemaModuleProps,
+  SchemaOpts,
   SchemaTemplate,
+  SchemaUtils,
+  SchemaProps,
 } from "@dendronhq/common-all";
 import sinon from "sinon";
 import { NoteTestUtilsV4, TestNoteFactory } from "@dendronhq/common-test-utils";
@@ -102,6 +105,95 @@ describe(`NoteUtils tests:`, () => {
 });
 
 describe(`SchemaUtil tests:`, () => {
+  describe(`GIVEN schema path with same grandchild from two different children`, () => {
+    /**
+     * The schemas setup for this test have the following paths:
+     * * h1.h2A.h3
+     * * h1.h2B.h3
+     * */
+
+    let schemaModuleProps: SchemaModuleProps;
+    let h1Schema: SchemaProps;
+    let h2SchemaA: SchemaProps;
+    let h2SchemaB: SchemaProps;
+    let h3Schema: SchemaProps;
+
+    beforeEach(async () => {
+      const vault = { fsPath: "/tmp/ws/vault1" };
+
+      schemaModuleProps = await NoteTestUtilsV4.createSchema({
+        fname: "/tmp/fname1",
+        vault,
+        wsRoot: "/tmp/ws/",
+        noWrite: true,
+      });
+
+      h1Schema = SchemaUtils.createFromSchemaOpts({
+        fname: "h1",
+        id: "h1",
+        vault,
+      });
+      schemaModuleProps.schemas[h1Schema.id] = h1Schema;
+
+      h2SchemaA = SchemaUtils.createFromSchemaOpts({
+        fname: "h2A",
+        id: "h2A",
+        vault,
+      });
+      schemaModuleProps.schemas[h2SchemaA.id] = h2SchemaA;
+      DNodeUtils.addChild(h1Schema, h2SchemaA);
+
+      h2SchemaB = SchemaUtils.createFromSchemaOpts({
+        fname: "h2B",
+        id: "h2B",
+        vault,
+      });
+      schemaModuleProps.schemas[h2SchemaB.id] = h2SchemaB;
+      DNodeUtils.addChild(h1Schema, h2SchemaB);
+
+      h3Schema = SchemaUtils.createFromSchemaOpts({
+        fname: "h3",
+        id: "h3",
+        vault,
+      });
+      schemaModuleProps.schemas[h3Schema.id] = h3Schema;
+      DNodeUtils.addChild(h2SchemaA, h3Schema);
+      DNodeUtils.addChild(h2SchemaB, h3Schema);
+    });
+
+    describe(`getPatternsRecursive Tests:`, () => {
+      it(`WHEN querying for pattern THEN get all patterns`, () => {
+        const actual = SchemaUtils.getPatternsRecursive(
+          h3Schema,
+          schemaModuleProps.schemas
+        );
+        expect(actual).toEqual(["h1/h2A/h3", "h1/h2B/h3"]);
+      });
+    });
+
+    describe(`matchNotePathWithSchemaAtLevel Tests:`, () => {
+      it(`WHEN given path from firstly registered schema THEN match`, () => {
+        const matched = SchemaUtils.matchNotePathWithSchemaAtLevel({
+          notePath: "h1.h2A.h3",
+          schemas: [h3Schema],
+          schemaModule: schemaModuleProps,
+          matchNamespace: true,
+        });
+        expect(matched).toBeDefined();
+      });
+
+      it(`WHEN given path from secondly registered schema THEN match`, () => {
+        const matched = SchemaUtils.matchNotePathWithSchemaAtLevel({
+          notePath: "h1.h2B.h3",
+          schemas: [h3Schema],
+          schemaModule: schemaModuleProps,
+          matchNamespace: true,
+        });
+        expect(matched).toBeDefined();
+      });
+    });
+  });
+
   describe(`WHEN running applyTemplate tests`, () => {
     const noteFactory: TestNoteFactory =
       TestNoteFactory.defaultUnitTestFactory();

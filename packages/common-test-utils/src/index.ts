@@ -443,7 +443,7 @@ export class NodeTestUtilsV2 {
 
   static normalizeNote({ note }: { note: NoteProps }): Partial<NoteProps> {
     return {
-      ..._.omit(note, ["body", "parent", "id", "vault"]),
+      ..._.omit(note, ["body", "parent", "parents", "id", "vault"]),
       body: _.trim(note.body),
     };
   }

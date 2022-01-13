@@ -20,6 +20,7 @@ describe("GIVEN syncNote", () => {
             wsRoot,
             props: {
               parent: "foo",
+              parents: ["foo"],
               contentHash: undefined,
             },
           });

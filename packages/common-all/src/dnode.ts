@@ -57,6 +57,13 @@ export class DNodeUtils {
   static addChild(parent: DNodeProps, child: DNodeProps) {
     parent.children = Array.from(new Set(parent.children).add(child.id));
     child.parent = parent.id;
+
+    if (_.isUndefined(child.parents)) {
+      child.parents = [];
+    }
+    if (!child.parents.includes(parent.id)) {
+      child.parents.push(parent.id);
+    }
   }
 
   static create(opts: DNodeOpts): DNodeProps {
@@ -109,6 +116,11 @@ export class DNodeUtils {
     return nodePath.split(".").slice(0, -1).join(".");
   }
 
+  /**
+   * Domain name is the first part of the path if we delimit the path by '.'
+   *
+   * DOMAIN_NAME.h1.h2.h3
+   * */
   static domainName(nodePath: string) {
     return nodePath.split(".")[0];
   }
@@ -1602,25 +1614,37 @@ export class SchemaUtils {
   };
 
   /**
-   * Get full pattern starting from the root
-   * @param schema
-   * @param schemas
-   * @returns
-   */
-  static getPatternRecursive = (
+   * Get a list of patterns for the given schema using '/' as delimiter
+   * between child and parent.
+   *
+   * For example given the schema 'h3' that is a child of multiple schemas
+   * (h2A and h2B) this method will return the following patterns:
+   *  ['h1/h2A/h3', 'h1/h2B/h3']
+   * */
+  static getPatternsRecursive = (
     schema: SchemaProps,
     schemas: SchemaPropsDict
-  ): string => {
+  ): string[] => {
     const part = SchemaUtils.getPattern(schema);
     if (_.isNull(schema.parent)) {
-      return part;
+      return [part];
     }
-    const parent: SchemaProps = schemas[schema.parent];
-    if (parent && parent.id !== "root") {
-      const prefix = SchemaUtils.getPatternRecursive(parent, schemas);
-      return [prefix, part].join("/");
+
+    const parents: SchemaProps[] | undefined = schema.parents?.map(
+      (pid) => schemas[pid]
+    );
+
+    if (parents && parents.length > 0 && parents[0].id !== "root") {
+      const patterns: string[] = [];
+      parents.forEach((parent) => {
+        const prefixes = SchemaUtils.getPatternsRecursive(parent, schemas);
+        prefixes.forEach((prefix) => {
+          patterns.push([prefix, part].join("/"));
+        });
+      });
+      return patterns;
     } else {
-      return part;
+      return [part];
     }
   };
 
@@ -1873,15 +1897,29 @@ export class SchemaUtils {
   }): SchemaMatchResult | undefined {
     const notePathClean = notePath.replace(/\./g, "/");
     let namespace = false;
+
     const match = _.find(schemas, (sc) => {
-      const pattern = SchemaUtils.getPatternRecursive(sc, schemaModule.schemas);
-      if (sc?.data?.namespace && matchNamespace) {
-        namespace = true;
-        return minimatch(notePathClean, _.trimEnd(pattern, "/*"));
-      } else {
-        return minimatch(notePathClean, pattern);
-      }
+      const patterns = SchemaUtils.getPatternsRecursive(
+        sc,
+        schemaModule.schemas
+      );
+
+      let isMatch = false;
+      patterns.forEach((pattern) => {
+        if (sc?.data?.namespace && matchNamespace) {
+          if (minimatch(notePathClean, _.trimEnd(pattern, "/*"))) {
+            isMatch = true;
+            namespace = true;
+          }
+        } else if (minimatch(notePathClean, pattern)) {
+          namespace = false;
+          isMatch = true;
+        }
+      });
+
+      return isMatch;
     });
+
     if (match) {
       return {
         schema: match,

@@ -161,9 +161,17 @@ export type DNodeProps<T = any, TCustom = any> = DNodeExplicitProps & {
    */
   schemaStub?: boolean;
   /**
-   * Immediate parent
+   * Immediate parent.
+   *
+   * Notes should have a single parent. However, when it comes to schemas
+   * they could have multiple parents. Hence, when using schemas rather use
+   * {@link DNodeProps.parents} list instead of a single parent value.
    */
   parent: DNodePointer | null;
+
+  /** Refer to {@link DNodeProps.parent} documentation */
+  parents: DNodePointer[] | undefined;
+
   /**
    * Immediate children
    */

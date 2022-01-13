@@ -63,7 +63,7 @@ describe("engine, cache", () => {
           _.merge(cache, out.notes);
         });
         const alpha = { ...engine.notes["alpha"] };
-        const omitKeys = ["body", "links", "parent", "children"];
+        const omitKeys = ["body", "links", "parent", "parents", "children"];
         expect(_.omit(cache["alpha"].data, ...omitKeys)).toEqual(
           _.omit(alpha, ...omitKeys)
         );

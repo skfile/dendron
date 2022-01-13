@@ -157,7 +157,7 @@ const NOTES = {
     async ({ engine }) => {
       return [
         {
-          actual: _.omit(engine.notes["one"], ["body", "parent"]),
+          actual: _.omit(engine.notes["one"], ["body", "parent", "parents"]),
           expected: {
             children: [],
             created: 1,
@@ -179,7 +179,7 @@ const NOTES = {
           },
         },
         {
-          actual: _.omit(engine.notes["three"], ["body", "parent"]),
+          actual: _.omit(engine.notes["three"], ["body", "parent", "parents"]),
           expected: {
             children: [],
             created: 1,

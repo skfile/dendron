@@ -179,6 +179,7 @@ describe("GIVEN: Github publish pod is run for a note", () => {
       updated: 1627283357535,
       created: 1627283357535,
       parent: null,
+      parents: undefined,
       children: [],
       body: "\n\n## Testing Github Publish Pod",
       data: {},
@@ -193,13 +194,11 @@ describe("GIVEN: Github publish pod is run for a note", () => {
     pod.createDiscussion = jest.fn();
     pod.createIssue = jest.fn();
     pod.updateIssue = jest.fn();
-    pod.getDataFromGithub = jest
-      .fn()
-      .mockReturnValue({
-        labelsHashMap: { "area.misc": "sfgdjio", "type.bug": "gsfahhj" },
-        discussionCategoriesHashMap: { Ideas: "sfgdjio", General: "gsfahhj" },
-        assigneesHashMap: { john: "dhdjdj", doe: "dhdjdk" },
-      });
+    pod.getDataFromGithub = jest.fn().mockReturnValue({
+      labelsHashMap: { "area.misc": "sfgdjio", "type.bug": "gsfahhj" },
+      discussionCategoriesHashMap: { Ideas: "sfgdjio", General: "gsfahhj" },
+      assigneesHashMap: { john: "dhdjdj", doe: "dhdjdk" },
+    });
   });
 
   const utilityMethods = {

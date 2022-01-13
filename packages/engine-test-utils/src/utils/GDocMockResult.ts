@@ -562,6 +562,7 @@ export const existingNote: NoteProps = {
   updated: 1627283357535,
   created: 1627283357535,
   parent: null,
+  parents: undefined,
   children: [],
   body: "\n\n## Testing GDoc Pod\n\nThis is the first line\n\n\n",
   data: {},
