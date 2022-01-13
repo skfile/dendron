@@ -76,6 +76,7 @@ export class DNodeUtils {
       anchors: {},
       children: [],
       parent: null,
+      parents: undefined,
       body: "",
       data: {},
       title: opts.title || NoteUtils.genTitle(opts.fname),
