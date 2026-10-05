@@ -1,3 +1,11 @@
+# Project archive
+
+A contribution fork preserving a small command-naming change from “Goto Note” to “Go to Note.” The upstream documentation is retained below.
+
+This repository is archived and is not actively maintained. Its code and history are preserved for reference.
+
+---
+
 [![dendronhq on Twitter](https://img.shields.io/twitter/follow/dendronhq?style=social)](https://link.dendron.so/twitter)
 [![Dendron on YouTube](https://img.shields.io/youtube/channel/subscribers/UC8GQLj4KZhN8WcJPiKXtcRQ?style=social)](https://link.dendron.so/youtube)
 [![Discord](https://img.shields.io/discord/717965437182410783?color=blueviolet&label=Discord&style=flat-square)](https://link.dendron.so/discord)
